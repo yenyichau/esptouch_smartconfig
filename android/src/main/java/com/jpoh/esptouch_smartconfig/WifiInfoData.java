@@ -5,6 +5,7 @@ import android.Manifest;
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.net.wifi.WifiManager;
+import android.net.wifi.WifiInfo;
 import android.location.LocationManager;
 import android.os.Build;
 import android.util.Log;
