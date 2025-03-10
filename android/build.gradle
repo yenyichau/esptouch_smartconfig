@@ -22,12 +22,16 @@ rootProject.allprojects {
 apply plugin: 'com.android.library'
 
 android {
+    namespace "com.jpoh.esptouch_smartconfig"
+
     compileSdkVersion 29
 
     defaultConfig {
         minSdkVersion 16
     }
+
     lintOptions {
         disable 'InvalidPackage'
     }
 }
+
