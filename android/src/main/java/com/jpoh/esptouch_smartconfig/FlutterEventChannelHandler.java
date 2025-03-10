@@ -1,59 +1,24 @@
 package com.jpoh.esptouch_smartconfig;
 
+import android.content.Context;
+import android.util.Log;
+
 import androidx.annotation.NonNull;
 
-import android.Manifest;
-import android.content.Context;
-import android.content.pm.PackageManager;
-import android.os.AsyncTask;
-import android.os.Build;
-import android.os.Bundle;
-import android.util.Log;
-import android.net.wifi.WifiInfo;
-import android.net.wifi.WifiManager;
-import android.location.LocationManager;
-
-import androidx.core.content.ContextCompat;
-
-import java.lang.ref.WeakReference;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
-import io.flutter.embedding.engine.plugins.FlutterPlugin;
-import io.flutter.plugin.common.MethodCall;
-import io.flutter.plugin.common.MethodChannel;
-import io.flutter.plugin.common.MethodChannel.MethodCallHandler;
-import io.flutter.plugin.common.BinaryMessenger;
-import io.flutter.plugin.common.MethodChannel.Result;
-import io.flutter.plugin.common.PluginRegistry.Registrar;
 import io.flutter.plugin.common.EventChannel;
-
-
-import com.espressif.iot.esptouch.EsptouchTask;
-import com.espressif.iot.esptouch.IEsptouchListener;
-import com.espressif.iot.esptouch.IEsptouchResult;
-import com.espressif.iot.esptouch.IEsptouchTask;
-import com.espressif.iot.esptouch.task.EsptouchTaskParameter;
-import com.espressif.iot.esptouch.task.__IEsptouchTask;
-import com.espressif.iot.esptouch.EsptouchTask;
-import com.espressif.iot.esptouch.IEsptouchResult;
-import com.espressif.iot.esptouch.IEsptouchTask;
-import com.espressif.iot.esptouch.util.ByteUtil;
-import com.espressif.iot.esptouch.util.TouchNetUtil;
 
 public class FlutterEventChannelHandler implements EventChannel.StreamHandler {
     private static final String TAG = "EsptouchPlugin";
-    private static final String CHANNEL_NAME= "esptouch_smartconfig/result";
+    private static final String CHANNEL_NAME = "esptouch_smartconfig/result";
 
     private final Context context;
-    final EventChannel eventChannel;
-
+    private final EventChannel eventChannel;
     private MainThreadEventSink eventSink;
     private EsptouchAsyncTask esptouchAsyncTask;
 
-    FlutterEventChannelHandler(Context context, EventChannel eventChannel) {
+    public FlutterEventChannelHandler(@NonNull Context context, @NonNull EventChannel eventChannel) {
         this.context = context;
         this.eventChannel = eventChannel;
         eventChannel.setStreamHandler(this);
@@ -61,24 +26,50 @@ public class FlutterEventChannelHandler implements EventChannel.StreamHandler {
 
     @Override
     @SuppressWarnings("unchecked")
-    public void onListen(Object o, EventChannel.EventSink eventSink) {
-        Log.d(TAG, "Event Listener is triggered");
-        Map<String, Object> map = (Map<String, Object>) o;
-        String ssid = (String) map.get("ssid");
-        String bssid = (String) map.get("bssid");
-        String password = (String) map.get("password");
-        String deviceCount = (String) map.get("deviceCount");
-        String broadcast = (String) map.get("isBroad");
+    public void onListen(Object arguments, EventChannel.EventSink eventSink) {
+        Log.d(TAG, "Event Listener triggered");
 
-        Log.d(TAG, String.format("Received stream configuration arguments: SSID: %s, BBSID: %s, Password: %s", ssid, bssid, password));
+        if (!(arguments instanceof Map)) {
+            Log.e(TAG, "Invalid arguments received in onListen");
+            return;
+        }
+
+        Map<String, Object> map = (Map<String, Object>) arguments;
+
+        String ssid = safeGetString(map, "ssid");
+        String bssid = safeGetString(map, "bssid");
+        String password = safeGetString(map, "password");
+        String deviceCount = safeGetString(map, "deviceCount");
+        String broadcast = safeGetString(map, "isBroad");
+
+        if (ssid == null || bssid == null || password == null) {
+            Log.e(TAG, "Missing required parameters for ESPTouch configuration");
+            return;
+        }
+
+        Log.d(TAG, String.format("Received configuration: SSID: %s, BSSID: %s, Password: %s, DeviceCount: %s, Broadcast: %s",
+                ssid, bssid, password, deviceCount, broadcast));
+
         this.eventSink = new MainThreadEventSink(eventSink);
         esptouchAsyncTask = new EsptouchAsyncTask(context, this.eventSink);
         esptouchAsyncTask.execute(ssid, bssid, password, deviceCount, broadcast);
     }
 
     @Override
-    public void onCancel(Object o) {
-        Log.d(TAG, "Cancelling stream with configuration arguments" + o);
-        esptouchAsyncTask.cancelEsptouch();
+    public void onCancel(Object arguments) {
+        Log.d(TAG, "Cancelling ESPTouch task");
+
+        if (esptouchAsyncTask != null) {
+            esptouchAsyncTask.cancelEsptouch();
+            esptouchAsyncTask = null;
+        }
+    }
+
+    /**
+     * Safely retrieves a String value from a Map, returning null if not present.
+     */
+    private String safeGetString(Map<String, Object> map, String key) {
+        Object value = map.get(key);
+        return value instanceof String ? (String) value : null;
     }
 }
